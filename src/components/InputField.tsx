@@ -7,7 +7,7 @@ type InputFieldProps = {
   name: string;
   defaultValue?: string;
   error?: FieldError;
-  inputProps: React.InputHTMLAttributes<HTMLInputElement>;
+  inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
 };
 
 const InputField = ({
@@ -20,18 +20,15 @@ const InputField = ({
   inputProps,
 }: InputFieldProps) => {
   return (
-    <div className="flex flex-col gap-2 w-full md:w-1/3">
-      <label htmlFor={name} className="text-xs text-gray-500">
-        {label}
-      </label>
+    <div className="flex flex-col gap-2 w-full md:w-1/4">
+      <label className="text-xs text-gray-500">{label}</label>
       <input
         type={type}
-        {...register({ name })}
+        {...register(name)}
         className="ring-[1.5px] ring-gray-300 p-2 rounded-md  text-sm w-full"
         {...inputProps}
         defaultValue={defaultValue}
       />
-
       {error?.message && (
         <p className="text-xs text-red-400">{error?.message.toString()}</p>
       )}
