@@ -3,16 +3,13 @@ import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { classesData, role, subjectsData } from "@/lib/data";
+import prisma from "@/lib/prisma";
+import { ITEMS_PER_PAGE } from "@/lib/settings";
+import { Class, Prisma, Teacher } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 
-type Class = {
-  id: number;
-  name: string;
-  capacity: number;
-  grade: number;
-  supervisor: string;
-};
+type ClassList = Class & { supervisor: Teacher };
 
 const columns = [
   {
@@ -40,34 +37,71 @@ const columns = [
   },
 ];
 
-const ClassesListPage = () => {
-  const renderRow = (item: Class) => (
-    <tr
-      key={item.id}
-      className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
-    >
-      <td className="flex items-center gap-4 p-4">
-        <h3 className="">{item.name}</h3>
-      </td>
-      <td className="hidden md:table-cell">{item.capacity}</td>
+const renderRow = (item: ClassList) => (
+  <tr
+    key={item.id}
+    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
+  >
+    <td className="flex items-center gap-4 p-4">
+      <h3 className="">{item.name}</h3>
+    </td>
+    <td className="hidden md:table-cell">{item.capacity}</td>
 
-      <td className="hidden md:table-cell">{item.grade}</td>
+    <td className="hidden md:table-cell">{item.name[0]}</td>
 
-      <td className="hidden md:table-cell">{item.supervisor}</td>
+    <td className="hidden md:table-cell">{item.supervisor.name+" "+item.supervisor.surname}</td>
 
-      <td>
-        <div className="flex items-center gap-2">
-          {role === "admin" && (
-            <>
-              <FormModal type="update" table="class" data={item} />
-              <FormModal type="delete" table="class" id={item.id} />
-            </>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
+    <td>
+      <div className="flex items-center gap-2">
+        {role === "admin" && (
+          <>
+            <FormModal type="update" table="class" data={item} />
+            <FormModal type="delete" table="class" id={item.id} />
+          </>
+        )}
+      </div>
+    </td>
+  </tr>
+);
+const ClassesListPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}) => {
+  const { page, ...queryParams } = await searchParams;
+  const p = page ? parseInt(page) : 1;
+  const query: Prisma.ClassWhereInput = {} as any;
+  if (queryParams) {
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (value !== undefined) {
+        switch (key) {
+          case "supervisorId":
+            query.supervisorId = value;
+            break;
+          case "search":
+            query.name = {
+              contains: value,
+              mode: "insensitive",
+            };
+            break;
+          default:
+            break;
+        }
+      }
+    }
+  }
 
+  const [data, count] = await prisma.$transaction([
+    prisma.class.findMany({
+      where: query,
+      include: {
+        supervisor: true,
+      },
+      take: ITEMS_PER_PAGE,
+      skip: ITEMS_PER_PAGE * (p - 1),
+    }),
+    prisma.class.count({ where: query }),
+  ]);
   return (
     <div className="bg-white p-4 rounded-md m-4 mt-0">
       <div className="flex item justify-between">
@@ -85,8 +119,8 @@ const ClassesListPage = () => {
           </div>
         </div>
       </div>
-      <Table columns={columns} renderRow={renderRow} data={classesData} />
-      <Pagination />
+      <Table columns={columns} renderRow={renderRow} data={data} />
+      <Pagination page={p} count={count} />
     </div>
   );
 };
