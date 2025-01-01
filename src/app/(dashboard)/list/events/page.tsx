@@ -2,12 +2,12 @@ import FormModal from "@/components/FormModal";
 import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
-import { eventsData, resultsData, role } from "@/lib/data";
+import { teachersData } from "@/lib/data";
 import prisma from "@/lib/prisma";
 import { ITEMS_PER_PAGE } from "@/lib/settings";
+import { currentUserId, role } from "@/lib/utils";
 import { Class, Event, Prisma } from "@prisma/client";
 import Image from "next/image";
-import Link from "next/link";
 
 type EventList = Event & { class: Class };
 
@@ -36,10 +36,14 @@ const columns = [
     accessor: "endTime",
     className: "hidden md:table-cell",
   },
-  {
-    header: "Actions",
-    accessor: "action",
-  },
+  ...(role === "admin"
+    ? [
+        {
+          header: "Actions",
+          accessor: "action",
+        },
+      ]
+    : []),
 ];
 
 const renderRow = (item: EventList) => (
@@ -50,7 +54,7 @@ const renderRow = (item: EventList) => (
     <td className="flex items-center gap-4 p-4">
       <h3 className="">{item.title}</h3>
     </td>
-    <td className="hidden md:table-cell">{item.class.name}</td>
+    <td className="hidden md:table-cell">{item.class?.name || "-"}</td>
 
     <td className="hidden md:table-cell">
       {new Intl.DateTimeFormat("en-US").format(item.startTime)}
@@ -89,6 +93,9 @@ const EventsListPage = async ({
   const { page, ...queryParams } = await searchParams;
   const p = page ? parseInt(page) : 1;
   const query: Prisma.EventWhereInput = {} as any;
+
+  // query.lesson = {};
+
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
       if (value !== undefined) {
@@ -105,6 +112,17 @@ const EventsListPage = async ({
       }
     }
   }
+
+  const roleConditions = {
+    teacher: { lessons: { some: { teacherId: currentUserId! } } },
+    student: { students: { some: { id: currentUserId! } } },
+    parent: { students: { some: { parentId: currentUserId! } } },
+  };
+
+  query.OR = [
+    { classId: null },
+    { class: roleConditions[role as keyof typeof roleConditions] },
+  ];
 
   const [data, count] = await prisma.$transaction([
     prisma.event.findMany({
