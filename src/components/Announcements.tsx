@@ -52,7 +52,7 @@ const Announcements = async () => {
               {announcement.description}
             </p>
           </div>
-        ))}
+        ))} 
       </div>
     </div>
   );

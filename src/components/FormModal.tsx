@@ -1,10 +1,33 @@
 "use client";
 
+import { deleteSubject } from "@/lib/actions";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { JSX, useState } from "react";
-// import TeacherForm from "./forms/TeacherForm";
-// import StudentForm from "./forms/StudentForm";
+import { useRouter } from "next/navigation";
+import {
+  Dispatch,
+  JSX,
+  SetStateAction,
+  startTransition,
+  useActionState,
+  useEffect,
+  useState,
+} from "react";
+import { toast } from "react-toastify";
+
+const deleteActionMap = {
+  subject: deleteSubject,
+  // class: deleteClass,
+  // teacher: deleteTeacher,
+  // student: deleteStudent,
+  // parent: deleteParent,
+  // lesson: deleteLesson,
+  // exam: deleteExam,
+  // assignment: deleteAssignment,
+  // result: deleteResult,
+  // Event: deleteEvent,
+  // announcement: deleteAnnouncement,
+};
 
 const TeacherForm = dynamic(() => import("./forms/TeacherForm"), {
   loading: () => <p>Loading...</p>,
@@ -15,13 +38,29 @@ const StudentForm = dynamic(() => import("./forms/StudentForm"), {
 const ParentForm = dynamic(() => import("./forms/ParentForm"), {
   loading: () => <p>Loading...</p>,
 });
+const SubjectForm = dynamic(() => import("./forms/SubjectForm"), {
+  loading: () => <p>Loading...</p>,
+});
 
 const forms: {
-  [key: string]: (type: "create" | "update", data?: any) => JSX.Element;
+  [key: string]: (
+    setOpen: Dispatch<SetStateAction<boolean>>,
+    type: "create" | "update",
+    data?: any
+  ) => JSX.Element;
 } = {
-  teacher: (type, data) => <TeacherForm type={type} data={data} />,
-  student: (type, data) => <StudentForm type={type} data={data} />,
-  parent: (type, data) => <ParentForm type={type} data={data} />,
+  teacher: (setOpen, type, data) => (
+    <TeacherForm type={type} data={data} setOpen={setOpen} />
+  ),
+  student: (setOpen, type, data) => (
+    <StudentForm type={type} data={data} setOpen={setOpen} />
+  ),
+  parent: (setOpen, type, data) => (
+    <ParentForm type={type} data={data} setOpen={setOpen} />
+  ),
+  subject: (setOpen, type, data) => (
+    <SubjectForm type={type} data={data} setOpen={setOpen} />
+  ),
 };
 const FormModal = ({
   table,
@@ -57,8 +96,24 @@ const FormModal = ({
   const [open, setOpen] = useState(false);
 
   const Form = () => {
+    const [state, formAction] = useActionState(deleteActionMap[table], {
+      success: false,
+      error: false,
+    });
+
+    const router = useRouter();
+
+    useEffect(() => {
+      if (state.success) {
+        toast.success("Subject has been deleted");
+        setOpen(false);
+        router.refresh();
+      }
+    }, [state]);
+
     return type === "delete" && id ? (
-      <form action="" className="p-4 flex flex-col gap-4">
+      <form action={formAction} className="p-4 flex flex-col gap-4">
+        <input type="text | number" value={id} hidden name="id" readOnly />
         <span className="text-center font-medium">
           Are you sure you want to delete this {table}?
         </span>
@@ -67,7 +122,7 @@ const FormModal = ({
         </button>
       </form>
     ) : type === "create" || type === "update" ? (
-      forms[table](type, data)
+      forms[table](setOpen, type, data)
     ) : (
       "Forms not found"
     );
